@@ -1,7 +1,10 @@
 FROM debian:jessie
-MAINTAINER Montana Flynn <montana@montanaflynn.me>
+LABEL maintainer="Montana Flynn <montana@montanaflynn.me>"
 
 # Necessities
+RUN echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu xenial main" | tee /etc/apt/sources.list.d/webupd8team-java.list
+RUN echo "deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu xenial main" | tee -a /etc/apt/sources.list.d/webupd8team-java.list
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys EEA14886
 RUN apt-get update && apt-get install -y sudo curl siege wget jq ca-certificates
 
 # Optimizations
@@ -9,24 +12,23 @@ ADD config/server/sysctl.conf /etc/sysctl.conf
 ADD config/server/limits.conf /etc/security/limits.conf
 
 # Java 8
-RUN mkdir -p /usr/lib/jvm/
-RUN curl --silent --location --retry 3 --cacert /etc/ssl/certs/GeoTrust_Global_CA.pem \
-    --header "Cookie: oraclelicense=accept-securebackup-cookie;" \
-    http://download.oracle.com/otn-pub/java/jdk/8u45-b14/jre-8u45-linux-x64.tar.gz \
-    | tar xz --strip-components=1 -C /usr/lib/jvm/
-ENV JAVA_HOME /usr/lib/jvm
-ENV PATH $JAVA_HOME/bin:$PATH
+RUN echo debconf shared/accepted-oracle-license-v1-1 select true | debconf-set-selections
+RUN echo debconf shared/accepted-oracle-license-v1-1 seen true | debconf-set-selections
+
+RUN apt-get install -y openjdk-8-jre-headless
 
 # Cassandra
 RUN mkdir -p /usr/lib/cassandra/
-RUN curl --silent http://ftp.wayne.edu/apache/cassandra/2.1.5/apache-cassandra-2.1.5-bin.tar.gz \
+RUN curl --cacert /etc/ssl/certs/GeoTrust_Global_CA.pem \
+    --silent https://archive.apache.org/dist/cassandra/2.1.5/apache-cassandra-2.1.5-bin.tar.gz \
     | tar xz --strip-components=1 -C /usr/lib/cassandra/
 ENV CASS_HOME /usr/lib/cassandra
 ENV PATH $CASS_HOME/bin:$PATH
 
 # Kong
 RUN apt-get update && apt-get install -y lua5.1 openssl dnsmasq netcat libpcre3
-RUN wget https://github.com/Mashape/kong/releases/download/0.3.0/kong-0.3.0.wheezy_all.deb
+RUN curl --cacert /etc/ssl/certs/GeoTrust_Global_CA.pem --silent --location \
+    -O https://github.com/Mashape/kong/releases/download/0.3.0/kong-0.3.0.wheezy_all.deb
 RUN sudo dpkg -i kong-0.3.0.*.deb
 
 # Cleanup
